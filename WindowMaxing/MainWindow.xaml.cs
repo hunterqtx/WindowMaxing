@@ -1,6 +1,4 @@
-﻿using Microsoft.Win32;
-using System;
-using System.Diagnostics;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -44,7 +42,7 @@ namespace WindowMaxing
         {
         }
 
-        
+
 
         public MainWindow(string[] args)
         {
@@ -90,7 +88,7 @@ namespace WindowMaxing
                 Height = MinHeight;
             }
         }
-        
+
         private void SetButtonMaxWidth()
         {
             double screenWidth = SystemParameters.PrimaryScreenWidth;
@@ -406,7 +404,7 @@ namespace WindowMaxing
             {
                 isResizing = true;
                 lastMousePosition = e.GetPosition(this);
-                Mouse.Capture(sender as UIElement); 
+                Mouse.Capture(sender as UIElement);
             }
         }
 
@@ -566,7 +564,7 @@ namespace WindowMaxing
         private void TopPriority_Click(object sender, RoutedEventArgs e)
         {
             isTopMost = !isTopMost;
-            SetTopmost(isTopMost); 
+            SetTopmost(isTopMost);
 
             MenuItem menuItem = sender as MenuItem;
             if (menuItem != null)
