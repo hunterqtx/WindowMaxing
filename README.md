@@ -27,8 +27,6 @@
    - Ensure all necessary dependencies and NuGet packages are installed.
 4. **Build the project:**
    - Build the project by clicking on `Build` -> `Build Solution`.
-5. **Run the application:**
-   - Start the application through Visual Studio or run the generated `.exe` file.
 
 ## Usage
 
