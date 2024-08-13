@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
@@ -25,6 +26,8 @@ namespace WindowMaxing
         private bool isVideoPlaying = false;
         private bool isVideoLooping = true;
         private bool isTopMost = false;
+        private bool isDragging = false;
+        private DispatcherTimer timer;
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -514,35 +517,24 @@ namespace WindowMaxing
         {
             VideoSlider.Maximum = videoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
             TotalTimeText.Text = videoPlayer.NaturalDuration.TimeSpan.ToString(@"hh\:mm\:ss");
-            DispatcherTimer timer = new DispatcherTimer
+
+            timer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(1)
             };
-            timer.Tick += (s, args) =>
-            {
-                if (videoPlayer.Source != null && videoPlayer.NaturalDuration.HasTimeSpan)
-                {
-                    VideoSlider.Value = videoPlayer.Position.TotalSeconds;
-                    CurrentTimeText.Text = videoPlayer.Position.ToString(@"hh\:mm\:ss");
-                }
-            };
+            timer.Tick += Timer_Tick;
             timer.Start();
+            isVideoPlaying = true;
         }
 
-        private void VideoPlayer_MediaEnded(object sender, RoutedEventArgs e)
+        private void Timer_Tick(object sender, EventArgs e)
         {
-            if (isVideoLooping)
+            if (!isDragging)
             {
-                videoPlayer.Position = TimeSpan.Zero;
-                videoPlayer.Play();
-            }
-            else
-            {
-                PlayPauseButton.Content = "⏮️";
-                isVideoPlaying = false;
+                VideoSlider.Value = videoPlayer.Position.TotalSeconds;
+                CurrentTimeText.Text = videoPlayer.Position.ToString(@"hh\:mm\:ss");
             }
         }
-
 
         private void PlayPauseVideo_Click(object sender, RoutedEventArgs e)
         {
@@ -572,21 +564,45 @@ namespace WindowMaxing
             }
         }
 
+        private void VideoSlider_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            isDragging = true;
+            videoPlayer.Pause();
+        }
 
+        private void VideoSlider_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            isDragging = false;
+            videoPlayer.Position = TimeSpan.FromSeconds(VideoSlider.Value);
+            videoPlayer.Play();
+        }
 
+        private void VideoSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (isDragging && videoPlayer.NaturalDuration.HasTimeSpan)
+            {
+                videoPlayer.Position = TimeSpan.FromSeconds(VideoSlider.Value);
+            }
+        }
+
+        private void VideoPlayer_MediaEnded(object sender, RoutedEventArgs e)
+        {
+            if (isVideoLooping)
+            {
+                videoPlayer.Position = TimeSpan.FromSeconds(0.01);
+                videoPlayer.Play();
+            }
+            else
+            {
+                PlayPauseButton.Content = "⏮️";
+                isVideoPlaying = false;
+            }
+        }
 
         private void LoopVideo_Click(object sender, RoutedEventArgs e)
         {
             isVideoLooping = !isVideoLooping;
             ((Button)sender).Content = isVideoLooping ? "🔁 On" : "🔁 Off";
-        }
-
-        private void VideoSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            if (videoPlayer.NaturalDuration.HasTimeSpan)
-            {
-                videoPlayer.Position = TimeSpan.FromSeconds(VideoSlider.Value);
-            }
         }
 
         private void FitToAspectRatio_Click(object sender, RoutedEventArgs e)

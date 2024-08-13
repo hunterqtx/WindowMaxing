@@ -96,7 +96,12 @@
         <!-- Video control bar -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom" Background="#80000000" Height="30" Visibility="Collapsed" Name="VideoControlBar">
             <TextBlock Name="CurrentTimeText" Foreground="White" VerticalAlignment="Center" Margin="10,0"/>
-            <Slider Name="VideoSlider" Width="200" VerticalAlignment="Center" ValueChanged="VideoSlider_ValueChanged"/>
+            <Slider Name="VideoSlider"
+        Width="200"
+        VerticalAlignment="Center"
+        ValueChanged="VideoSlider_ValueChanged"
+        PreviewMouseLeftButtonDown="VideoSlider_MouseLeftButtonDown"
+        PreviewMouseLeftButtonUp="VideoSlider_MouseLeftButtonUp"/>
             <TextBlock Name="TotalTimeText" Foreground="White" VerticalAlignment="Center" Margin="10,0"/>
             <Button x:Name="PlayPauseButton" Content="▶" Click="PlayPauseVideo_Click" Style="{StaticResource FadeButtonStyle}"/>
             <Button Content="🔁" Click="LoopVideo_Click" Style="{StaticResource FadeButtonStyle}"/>
