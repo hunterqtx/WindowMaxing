@@ -27,8 +27,6 @@
    - Ensure all necessary dependencies and NuGet packages are installed.
 4. **Build the project:**
    - Build the project by clicking on `Build` -> `Build Solution`.
-5. **Run the application:**
-   - Start the application through Visual Studio or run the generated `.exe` file.
 
 ## Usage
 
@@ -43,4 +41,4 @@
 
 ## License
 
-This project is licensed under the Apache 2.0 License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache 2.0 License. See the [LICENSE](LICENSE.txt) file for details.
