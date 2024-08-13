@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using LibVLCSharp.Shared;
 
 namespace WindowMaxing
 {
@@ -37,6 +38,9 @@ namespace WindowMaxing
         private const uint SWP_NOACTIVATE = 0x0010;
         private const uint SWP_SHOWWINDOW = 0x0040;
 
+        private LibVLC libVLC;
+        private MediaPlayer mediaPlayer;
+
         public MainWindow()
             : this(null)
         {
@@ -61,6 +65,12 @@ namespace WindowMaxing
             topmostTimer.Interval = TimeSpan.FromSeconds(1);
             topmostTimer.Tick += TopmostTimer_Tick;
             topmostTimer.Start();
+
+            // Initialize VLC only once
+            Core.Initialize();
+            libVLC = new LibVLC();
+            mediaPlayer = new MediaPlayer(libVLC);
+            videoPlayer.MediaPlayer = mediaPlayer;
 
             if (args != null && args.Length > 0)
             {
@@ -261,7 +271,7 @@ namespace WindowMaxing
             }
             else if (e.Key == Key.Space)
             {
-                if (videoPlayer.Visibility == Visibility.Visible && videoPlayer.Source != null)
+                if (videoPlayer.Visibility == Visibility.Visible && videoPlayer.MediaPlayer != null && videoPlayer.MediaPlayer.IsPlaying)
                 {
                     PlayPauseVideo_Click(null, null);
                 }
@@ -273,7 +283,7 @@ namespace WindowMaxing
         {
             if (e.Key == Key.Space)
             {
-                if (videoPlayer.Visibility == Visibility.Visible && videoPlayer.Source != null)
+                if (videoPlayer.Visibility == Visibility.Visible && videoPlayer.MediaPlayer != null)
                 {
                     PlayPauseVideo_Click(null, null);
                 }
@@ -416,24 +426,22 @@ namespace WindowMaxing
                 gifTimer = null;
             }
 
-            if (videoPlayer.Source != null)
+            if (mediaPlayer != null)
             {
-                videoPlayer.Stop();
-                videoPlayer.MediaOpened -= VideoPlayer_MediaOpened;
-                videoPlayer.MediaEnded -= VideoPlayer_MediaEnded;
-                videoPlayer.Source = null;
+                mediaPlayer.Stop();
             }
 
             string extension = Path.GetExtension(filePath).ToLower();
             if (new[] { ".mp4", ".avi", ".mov", ".wmv", ".mkv" }.Contains(extension))
             {
                 photoDisplay.Visibility = Visibility.Collapsed;
+
                 videoPlayer.Visibility = Visibility.Visible;
 
-                videoPlayer.Source = new Uri(filePath);
-                videoPlayer.MediaOpened += VideoPlayer_MediaOpened;
-                videoPlayer.MediaEnded += VideoPlayer_MediaEnded;
-                videoPlayer.Play();
+                var media = new Media(libVLC, new Uri(filePath));
+
+                mediaPlayer.Play(media);
+
                 isVideoPlaying = true;
                 PlayPauseButton.Content = "⏸";
             }
@@ -448,31 +456,37 @@ namespace WindowMaxing
 
 
 
+
+
         private void VideoPlayer_MediaOpened(object sender, RoutedEventArgs e)
         {
-            VideoSlider.Maximum = videoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
-            TotalTimeText.Text = videoPlayer.NaturalDuration.TimeSpan.ToString(@"hh\:mm\:ss");
-            DispatcherTimer timer = new DispatcherTimer
+            if (videoPlayer.MediaPlayer != null)
             {
-                Interval = TimeSpan.FromSeconds(1)
-            };
-            timer.Tick += (s, args) =>
-            {
-                if (videoPlayer.Source != null && videoPlayer.NaturalDuration.HasTimeSpan)
+                VideoSlider.Maximum = videoPlayer.MediaPlayer.Length / 1000.0;
+                TotalTimeText.Text = TimeSpan.FromMilliseconds(videoPlayer.MediaPlayer.Length).ToString(@"hh\:mm\:ss");
+
+                DispatcherTimer timer = new DispatcherTimer
                 {
-                    VideoSlider.Value = videoPlayer.Position.TotalSeconds;
-                    CurrentTimeText.Text = videoPlayer.Position.ToString(@"hh\:mm\:ss");
-                }
-            };
-            timer.Start();
+                    Interval = TimeSpan.FromSeconds(1)
+                };
+                timer.Tick += (s, args) =>
+                {
+                    if (videoPlayer.MediaPlayer.IsPlaying)
+                    {
+                        VideoSlider.Value = videoPlayer.MediaPlayer.Time / 1000.0;
+                        CurrentTimeText.Text = TimeSpan.FromMilliseconds(videoPlayer.MediaPlayer.Time).ToString(@"hh\:mm\:ss");
+                    }
+                };
+                timer.Start();
+            }
         }
 
-        private void VideoPlayer_MediaEnded(object sender, RoutedEventArgs e)
+        private void VideoPlayer_MediaEnded(object sender, EventArgs e)
         {
             if (isVideoLooping)
             {
-                videoPlayer.Position = TimeSpan.Zero;
-                videoPlayer.Play();
+                videoPlayer.MediaPlayer.Position = 0;
+                videoPlayer.MediaPlayer.Play();
             }
             else
             {
@@ -484,31 +498,25 @@ namespace WindowMaxing
 
         private void PlayPauseVideo_Click(object sender, RoutedEventArgs e)
         {
-            if (videoPlayer.Source == null)
+            if (videoPlayer.MediaPlayer == null)
             {
                 return;
             }
 
-            if (videoPlayer.Position == videoPlayer.NaturalDuration.TimeSpan)
+            if (videoPlayer.MediaPlayer.IsPlaying)
             {
-                videoPlayer.Position = TimeSpan.Zero;
-                videoPlayer.Play();
-                PlayPauseButton.Content = "⏸";
-                isVideoPlaying = true;
-            }
-            else if (isVideoPlaying)
-            {
-                videoPlayer.Pause();
+                videoPlayer.MediaPlayer.Pause();
                 PlayPauseButton.Content = "▶";
                 isVideoPlaying = false;
             }
             else
             {
-                videoPlayer.Play();
+                videoPlayer.MediaPlayer.Play();
                 PlayPauseButton.Content = "⏸";
                 isVideoPlaying = true;
             }
         }
+
 
 
 
@@ -521,11 +529,13 @@ namespace WindowMaxing
 
         private void VideoSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (videoPlayer.NaturalDuration.HasTimeSpan)
+            if (videoPlayer.MediaPlayer.Media != null && videoPlayer.MediaPlayer.Length > 0)
             {
-                videoPlayer.Position = TimeSpan.FromSeconds(VideoSlider.Value);
+                long newPosition = (long)(VideoSlider.Value * videoPlayer.MediaPlayer.Length);
+                videoPlayer.MediaPlayer.Time = newPosition;
             }
         }
+
 
         private void FitToAspectRatio_Click(object sender, RoutedEventArgs e)
         {
@@ -544,9 +554,13 @@ namespace WindowMaxing
                 this.Width = newWidth;
                 this.Height = newHeight;
             }
-            else if (videoPlayer.Visibility == Visibility.Visible && videoPlayer.NaturalVideoWidth > 0 && videoPlayer.NaturalVideoHeight > 0)
+            else if (videoPlayer.Visibility == Visibility.Visible && videoPlayer.MediaPlayer != null &&
+                     videoPlayer.MediaPlayer.Media != null &&
+                     videoPlayer.MediaPlayer.Media.Tracks != null &&
+                     videoPlayer.MediaPlayer.Media.Tracks.Any(t => t.Data.Video.Width > 0 && t.Data.Video.Height > 0))
             {
-                double aspectRatio = (double)videoPlayer.NaturalVideoWidth / videoPlayer.NaturalVideoHeight;
+                var videoTrack = videoPlayer.MediaPlayer.Media.Tracks.First(t => t.Data.Video.Width > 0 && t.Data.Video.Height > 0).Data.Video;
+                double aspectRatio = (double)videoTrack.Width / videoTrack.Height;
                 double newHeight = this.ActualHeight;
                 double newWidth = newHeight * aspectRatio;
 
@@ -560,6 +574,7 @@ namespace WindowMaxing
                 this.Height = newHeight;
             }
         }
+
 
         private void TopPriority_Click(object sender, RoutedEventArgs e)
         {
