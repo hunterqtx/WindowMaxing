@@ -363,82 +363,100 @@ namespace WindowMaxing
             (sender as Button).ContextMenu.IsOpen = true;
         }
 
-        private void SetGifTimer100_Click(object sender, RoutedEventArgs e)
-        {
-            SetGifInterval(100, sender as MenuItem);
-        }
+        
 
-        private void SetGifTimer90_Click(object sender, RoutedEventArgs e)
+        private void SetVideoSpeed_Click(object sender, RoutedEventArgs e)
         {
-            SetGifInterval(90, sender as MenuItem);
-        }
-
-        private void SetGifTimer80_Click(object sender, RoutedEventArgs e)
-        {
-            SetGifInterval(80, sender as MenuItem);
-        }
-
-        private void SetGifTimer70_Click(object sender, RoutedEventArgs e)
-        {
-            SetGifInterval(70, sender as MenuItem);
-        }
-
-        private void SetGifTimer60_Click(object sender, RoutedEventArgs e)
-        {
-            SetGifInterval(60, sender as MenuItem);
-        }
-
-        private void SetGifTimer50_Click(object sender, RoutedEventArgs e)
-        {
-            SetGifInterval(50, sender as MenuItem);
-        }
-
-        private void SetGifInterval(int interval, MenuItem menuItem)
-        {
-            gifInterval = interval;
-            RestartGifTimer();
-
-            if (menuItem == null)
+            if (videoPlayer != null)
             {
-                return;
-            }
-
-            ItemsControl parent = menuItem.Parent as ItemsControl;
-
-            while (parent != null && !(parent is ContextMenu))
-            {
-                parent = parent.Parent as ItemsControl;
-            }
-
-            var contextMenu = parent as ContextMenu;
-            if (contextMenu == null)
-            {
-                return;
-            }
-
-            foreach (MenuItem item in contextMenu.Items)
-            {
-                if (item.HasItems)
-                {
-                    foreach (MenuItem subItem in item.Items)
-                    {
-                        subItem.IsChecked = false;
-                    }
-                }
-                else
+                foreach (MenuItem item in VideoSpeedMenu.Items)
                 {
                     item.IsChecked = false;
                 }
-            }
 
-            menuItem.IsChecked = true;
+                MenuItem clickedItem = sender as MenuItem;
+                clickedItem.IsChecked = true;
+
+                double speed = 1.0;
+                switch (clickedItem.Name)
+                {
+                    case "Speed05x":
+                        speed = 0.5;
+                        break;
+                    case "Speed075x":
+                        speed = 0.75;
+                        break;
+                    case "Speed1x":
+                        speed = 1.0;
+                        break;
+                    case "Speed125x":
+                        speed = 1.25;
+                        break;
+                    case "Speed15x":
+                        speed = 1.5;
+                        break;
+                    case "Speed175x":
+                        speed = 1.75;
+                        break;
+                    case "Speed2x":
+                        speed = 2.0;
+                        break;
+                }
+
+                videoPlayer.SpeedRatio = speed;
+            }
+        }
+
+        private void SetGifTimer_Click(object sender, RoutedEventArgs e)
+        {
+            if (gifTimer != null)
+            {
+                foreach (MenuItem item in GifIntervalMenu.Items)
+                {
+                    item.IsChecked = false;
+                }
+
+                MenuItem clickedItem = sender as MenuItem;
+                clickedItem.IsChecked = true;
+
+                int interval = 100;
+                switch (clickedItem.Name)
+                {
+                    case "Gif125ms":
+                        interval = 125;
+                        break;
+                    case "Gif100ms":
+                        interval = 100;
+                        break;
+                    case "Gif90ms":
+                        interval = 90;
+                        break;
+                    case "Gif80ms":
+                        interval = 80;
+                        break;
+                    case "Gif70ms":
+                        interval = 70;
+                        break;
+                    case "Gif60ms":
+                        interval = 60;
+                        break;
+                    case "Gif50ms":
+                        interval = 50;
+                        break;
+                }
+
+                gifInterval = interval;
+                RestartGifTimer();
+            }
         }
 
         private void RestartGifTimer()
         {
             if (gifTimer != null)
             {
+                gifTimer.Stop();
                 gifTimer.Interval = TimeSpan.FromMilliseconds(gifInterval);
+                gifTimer.Start();
             }
         }
 
