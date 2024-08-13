@@ -8,6 +8,8 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Microsoft.WindowsAPICodePack.Shell;
+using Microsoft.WindowsAPICodePack.Shell.PropertySystem;
 
 namespace WindowMaxing
 {
@@ -231,7 +233,49 @@ namespace WindowMaxing
         {
             if (imageFiles == null || imageFiles.Length == 0) return;
 
-            MessageBox.Show($"Filename: {Path.GetFileName(imageFiles[currentIndex])}\nPfad: {imageFiles[currentIndex]}", "Information");
+            string filePath = imageFiles[currentIndex];
+            string fileName = Path.GetFileName(filePath);
+            string codec = string.Empty;
+            string resolution = string.Empty;
+            string fileSize = string.Empty;
+
+            try
+            {
+                var shellFile = ShellFile.FromFilePath(filePath);
+                codec = shellFile.Properties.System.Video.Compression.Value?.ToString() ?? "Unknown";
+                resolution = $"{shellFile.Properties.System.Video.FrameWidth.Value} x {shellFile.Properties.System.Video.FrameHeight.Value}";
+                fileSize = new FileInfo(filePath).Length.ToString("N0") + " bytes";
+            }
+            catch (Exception)
+            {
+                codec = "Codec information not available.";
+                resolution = "Resolution information not available.";
+                fileSize = "File size information not available.";
+            }
+
+            string metadataInfo = $"Filename: {fileName}\n" +
+                                  $"Path: {filePath}\n" +
+                                  $"Codec: {codec}\n" +
+                                  $"Resolution: {resolution}\n" +
+                                  $"File Size: {fileSize}";
+
+            TextBox textBox = new TextBox
+            {
+                Text = metadataInfo,
+                IsReadOnly = true,
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
+
+            Window infoWindow = new Window
+            {
+                Title = "Information",
+                Content = textBox,
+                Width = 400,
+                Height = 300
+            };
+            infoWindow.ShowDialog();
         }
 
         private void Minimize_Click(object sender, RoutedEventArgs e)
