@@ -30,6 +30,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- Image for static images and gif playback -->
         <Image Name="photoDisplay" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
 
         <!-- MediaElement for video playback -->
@@ -60,14 +61,14 @@
             <Button Name="SettingsButton" Content="⚙" Style="{StaticResource FadeButtonStyle}" Click="SettingsButton_Click" Visibility="Collapsed">
                 <Button.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="Gif-Interval" Name="GifIntervalMenu">
-                            <MenuItem Header="125 ms" Name="Gif125ms" Click="SetGifTimer_Click"/>
-                            <MenuItem Header="100 ms" Name="Gif100ms" Click="SetGifTimer_Click" IsChecked="True"/>
-                            <MenuItem Header="90 ms" Name="Gif90ms" Click="SetGifTimer_Click"/>
-                            <MenuItem Header="80 ms" Name="Gif80ms" Click="SetGifTimer_Click"/>
-                            <MenuItem Header="70 ms" Name="Gif70ms" Click="SetGifTimer_Click"/>
-                            <MenuItem Header="60 ms" Name="Gif60ms" Click="SetGifTimer_Click"/>
-                            <MenuItem Header="50 ms" Name="Gif50ms" Click="SetGifTimer_Click"/>
+                        <MenuItem Header="Gif Speed Ratio" Name="GifIntervalMenu">
+                            <MenuItem Header="0.5x" Name="GifSpeed05x" Click="SetGifSpeed_Click"/>
+                            <MenuItem Header="0.75x" Name="GifSpeed075x" Click="SetGifSpeed_Click"/>
+                            <MenuItem Header="1x" Name="GifSpeed1x" Click="SetGifSpeed_Click" IsChecked="True"/>
+                            <MenuItem Header="1.25x" Name="GifSpeed125x" Click="SetGifSpeed_Click"/>
+                            <MenuItem Header="1.5x" Name="GifSpeed15x" Click="SetGifSpeed_Click"/>
+                            <MenuItem Header="1.75x" Name="GifSpeed175x" Click="SetGifSpeed_Click"/>
+                            <MenuItem Header="2x" Name="GifSpeed2x" Click="SetGifSpeed_Click"/>
                         </MenuItem>
                         <MenuItem Header="Video Speed Ratio" Name="VideoSpeedMenu">
                             <MenuItem Header="0.5x" Name="Speed05x" Click="SetVideoSpeed_Click"/>

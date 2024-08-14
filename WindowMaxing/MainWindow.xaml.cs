@@ -2,15 +2,16 @@
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.WindowsAPICodePack.Shell;
-using Microsoft.WindowsAPICodePack.Shell.PropertySystem;
+using WpfAnimatedGif;
 
 namespace WindowMaxing
 {
@@ -19,8 +20,6 @@ namespace WindowMaxing
         private string[] imageFiles;
         private int currentIndex = -1;
         private DispatcherTimer fadeOutTimer;
-        private DispatcherTimer gifTimer;
-        private int gifInterval = 100;
         private bool isResizing = false;
         private Point lastMousePosition;
         private bool isVideoPlaying = false;
@@ -184,43 +183,77 @@ namespace WindowMaxing
             initialTimer.Start();
         }
 
-        private void LoadImage(string filePath)
+        private async void LoadMedia(string filePath)
         {
-            if (gifTimer != null)
+            if (videoPlayer.Source != null)
             {
-                gifTimer.Stop();
-                gifTimer = null;
+                videoPlayer.Stop();
+                videoPlayer.MediaOpened -= VideoPlayer_MediaOpened;
+                videoPlayer.MediaEnded -= VideoPlayer_MediaEnded;
+                videoPlayer.Source = null;
             }
 
-            BitmapImage bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.UriSource = new Uri(filePath);
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.EndInit();
+            if (ImageBehavior.GetAnimatedSource(photoDisplay) != null)
+            {
+                ImageBehavior.SetAnimatedSource(photoDisplay, null);
+            }
 
-            photoDisplay.Source = bitmap;
-            CheckIfGifAndPlay(bitmap, filePath);
+            string extension = Path.GetExtension(filePath).ToLower();
+            if (new[] { ".mp4", ".avi", ".mov", ".wmv", ".mkv" }.Contains(extension))
+            {
+                photoDisplay.Visibility = Visibility.Collapsed;
+                videoPlayer.Visibility = Visibility.Visible;
+
+                videoPlayer.Source = new Uri(filePath);
+                videoPlayer.MediaOpened += VideoPlayer_MediaOpened;
+                videoPlayer.MediaEnded += VideoPlayer_MediaEnded;
+                videoPlayer.Play();
+                isVideoPlaying = true;
+                PlayPauseButton.Content = "⏸";
+            }
+            else
+            {
+                photoDisplay.Visibility = Visibility.Visible;
+                videoPlayer.Visibility = Visibility.Collapsed;
+                VideoControlBar.Visibility = Visibility.Collapsed;
+                await LoadImageAsync(filePath);
+            }
         }
 
-        private void CheckIfGifAndPlay(BitmapImage bitmap, string filePath)
+        private async Task LoadImageAsync(string filePath)
         {
-            if (Path.GetExtension(filePath).ToLower() == ".gif")
+            bool isGif = Path.GetExtension(filePath).ToLower() == ".gif";
+
+            await Task.Run(() =>
             {
-                var gifDecoder = new GifBitmapDecoder(new Uri(filePath), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.Default);
-                var animation = gifDecoder.Frames;
-
-                gifTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(gifInterval) };
-                int frameIndex = 0;
-
-                gifTimer.Tick += (s, args) =>
+                Application.Current.Dispatcher.Invoke(() =>
                 {
-                    photoDisplay.Source = animation[frameIndex];
-                    frameIndex = (frameIndex + 1) % animation.Count;
-                };
+                    BitmapImage bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.UriSource = new Uri(filePath);
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.EndInit();
 
-                gifTimer.Start();
-            }
+                    if (isGif)
+                    {
+                        LoadGifWithWpfAnimatedGif(bitmap);
+                    }
+                    else
+                    {
+                        ImageBehavior.SetAnimatedSource(photoDisplay, null);
+
+                        photoDisplay.Source = bitmap;
+                    }
+                });
+            });
         }
+
+        private void LoadGifWithWpfAnimatedGif(BitmapImage bitmap)
+        {
+            ImageBehavior.SetAnimatedSource(photoDisplay, bitmap);
+            ImageBehavior.SetRepeatBehavior(photoDisplay, RepeatBehavior.Forever);
+        }
+
 
         private void Previous_Click(object sender, RoutedEventArgs e)
         {
@@ -335,7 +368,10 @@ namespace WindowMaxing
 
             currentIndex = (currentIndex - 1 + imageFiles.Length) % imageFiles.Length;
             LoadMedia(imageFiles[currentIndex]);
-            UpdateNavigationButtons();
+            // Show nav buttons after using them
+            // Only applies when used with keys
+            //
+            //UpdateNavigationButtons();
         }
 
         private void NavigateToNextImage()
@@ -344,7 +380,10 @@ namespace WindowMaxing
 
             currentIndex = (currentIndex + 1) % imageFiles.Length;
             LoadMedia(imageFiles[currentIndex]);
-            UpdateNavigationButtons();
+            // Show nav buttons after using them
+            // Only applies when used with keys
+            //
+            //UpdateNavigationButtons();
         }
 
         private void UpdateNavigationButtons()
@@ -410,56 +449,49 @@ namespace WindowMaxing
             }
         }
 
-        private void SetGifTimer_Click(object sender, RoutedEventArgs e)
+        private void SetGifSpeed_Click(object sender, RoutedEventArgs e)
         {
-            if (gifTimer != null)
+            foreach (MenuItem item in GifIntervalMenu.Items)
             {
-                foreach (MenuItem item in GifIntervalMenu.Items)
-                {
-                    item.IsChecked = false;
-                }
-
-                MenuItem clickedItem = sender as MenuItem;
-                clickedItem.IsChecked = true;
-
-                int interval = 100;
-                switch (clickedItem.Name)
-                {
-                    case "Gif125ms":
-                        interval = 125;
-                        break;
-                    case "Gif100ms":
-                        interval = 100;
-                        break;
-                    case "Gif90ms":
-                        interval = 90;
-                        break;
-                    case "Gif80ms":
-                        interval = 80;
-                        break;
-                    case "Gif70ms":
-                        interval = 70;
-                        break;
-                    case "Gif60ms":
-                        interval = 60;
-                        break;
-                    case "Gif50ms":
-                        interval = 50;
-                        break;
-                }
-
-                gifInterval = interval;
-                RestartGifTimer();
+                item.IsChecked = false;
             }
+
+            MenuItem clickedItem = sender as MenuItem;
+            clickedItem.IsChecked = true;
+
+            double speed = 1.0;
+            switch (clickedItem.Name)
+            {
+                case "GifSpeed05x":
+                    speed = 0.5;
+                    break;
+                case "GifSpeed075x":
+                    speed = 0.75;
+                    break;
+                case "GifSpeed1x":
+                    speed = 1.0;
+                    break;
+                case "GifSpeed125x":
+                    speed = 1.25;
+                    break;
+                case "GifSpeed15x":
+                    speed = 1.5;
+                    break;
+                case "GifSpeed175x":
+                    speed = 1.75;
+                    break;
+                case "GifSpeed2x":
+                    speed = 2.0;
+                    break;
+            }
+            SetAnimationSpeed(speed);
         }
 
-        private void RestartGifTimer()
+        private void SetAnimationSpeed(double speed)
         {
-            if (gifTimer != null)
+            if (photoDisplay.Source != null)
             {
-                gifTimer.Stop();
-                gifTimer.Interval = TimeSpan.FromMilliseconds(gifInterval);
-                gifTimer.Start();
+                ImageBehavior.SetAnimationSpeedRatio(photoDisplay, speed);
             }
         }
 
@@ -472,45 +504,6 @@ namespace WindowMaxing
                 Mouse.Capture(sender as UIElement);
             }
         }
-
-        private void LoadMedia(string filePath)
-        {
-            if (gifTimer != null)
-            {
-                gifTimer.Stop();
-                gifTimer = null;
-            }
-
-            if (videoPlayer.Source != null)
-            {
-                videoPlayer.Stop();
-                videoPlayer.MediaOpened -= VideoPlayer_MediaOpened;
-                videoPlayer.MediaEnded -= VideoPlayer_MediaEnded;
-                videoPlayer.Source = null;
-            }
-
-            string extension = Path.GetExtension(filePath).ToLower();
-            if (new[] { ".mp4", ".avi", ".mov", ".wmv", ".mkv" }.Contains(extension))
-            {
-                photoDisplay.Visibility = Visibility.Collapsed;
-                videoPlayer.Visibility = Visibility.Visible;
-
-                videoPlayer.Source = new Uri(filePath);
-                videoPlayer.MediaOpened += VideoPlayer_MediaOpened;
-                videoPlayer.MediaEnded += VideoPlayer_MediaEnded;
-                videoPlayer.Play();
-                isVideoPlaying = true;
-                PlayPauseButton.Content = "⏸";
-            }
-            else
-            {
-                photoDisplay.Visibility = Visibility.Visible;
-                videoPlayer.Visibility = Visibility.Collapsed;
-                VideoControlBar.Visibility = Visibility.Collapsed;
-                LoadImage(filePath);
-            }
-        }
-
 
 
         private void VideoPlayer_MediaOpened(object sender, RoutedEventArgs e)
