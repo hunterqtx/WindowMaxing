@@ -1,6 +1,7 @@
 ﻿<Window x:Class="WindowMaxing.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wpfGif="http://wpfanimatedgif.codeplex.com"
         Title="WindowMaxing" Height="450" Width="800" MinWidth="150" MinHeight="250" WindowStyle="None" AllowsTransparency="True" Background="Black"
         ResizeMode="CanResize" SizeToContent="Manual" SizeChanged="Window_SizeChanged" Activated="Window_Activated" Deactivated="Window_Deactivated">
     <Window.Resources>
@@ -30,7 +31,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Image Name="photoDisplay" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        <Image Name="photoDisplay" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
         <!-- MediaElement for video playback -->
         <MediaElement Name="videoPlayer" LoadedBehavior="Manual" UnloadedBehavior="Stop" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center"/>

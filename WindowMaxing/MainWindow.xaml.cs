@@ -11,6 +11,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.WindowsAPICodePack.Shell;
 using Microsoft.WindowsAPICodePack.Shell.PropertySystem;
+using WpfAnimatedGif;
 
 namespace WindowMaxing
 {
@@ -192,15 +193,24 @@ namespace WindowMaxing
                 gifTimer = null;
             }
 
-            BitmapImage bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.UriSource = new Uri(filePath);
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.EndInit();
+            if (Path.GetExtension(filePath).ToLower() == ".gif")
+            {
+                // Load Gif using WpfAnimatedGif
+                var image = new BitmapImage(new Uri(filePath));
+                ImageBehavior.SetAnimatedSource(photoDisplay, image);
+            }
+            else
+            {
+                BitmapImage bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new Uri(filePath);
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.EndInit();
 
-            photoDisplay.Source = bitmap;
-            CheckIfGifAndPlay(bitmap, filePath);
+                photoDisplay.Source = bitmap;
+            }
         }
+
 
         private void CheckIfGifAndPlay(BitmapImage bitmap, string filePath)
         {
@@ -335,7 +345,7 @@ namespace WindowMaxing
 
             currentIndex = (currentIndex - 1 + imageFiles.Length) % imageFiles.Length;
             LoadMedia(imageFiles[currentIndex]);
-            UpdateNavigationButtons();
+            //UpdateNavigationButtons();
         }
 
         private void NavigateToNextImage()
@@ -344,7 +354,7 @@ namespace WindowMaxing
 
             currentIndex = (currentIndex + 1) % imageFiles.Length;
             LoadMedia(imageFiles[currentIndex]);
-            UpdateNavigationButtons();
+            //UpdateNavigationButtons();
         }
 
         private void UpdateNavigationButtons()
