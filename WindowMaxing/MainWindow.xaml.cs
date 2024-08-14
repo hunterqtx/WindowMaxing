@@ -4,13 +4,11 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.WindowsAPICodePack.Shell;
-using Microsoft.WindowsAPICodePack.Shell.PropertySystem;
 
 namespace WindowMaxing
 {
@@ -19,8 +17,6 @@ namespace WindowMaxing
         private string[] imageFiles;
         private int currentIndex = -1;
         private DispatcherTimer fadeOutTimer;
-        private DispatcherTimer gifTimer;
-        private int gifInterval = 100;
         private bool isResizing = false;
         private Point lastMousePosition;
         private bool isVideoPlaying = false;
@@ -184,42 +180,82 @@ namespace WindowMaxing
             initialTimer.Start();
         }
 
-        private void LoadImage(string filePath)
+        private void LoadMedia(string filePath)
         {
-            if (gifTimer != null)
+            if (gifPlayer.Source != null)
             {
-                gifTimer.Stop();
-                gifTimer = null;
+                gifPlayer.Stop();
+                gifPlayer.Source = null;
+                gifPlayer.Visibility = Visibility.Collapsed;
             }
 
-            BitmapImage bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.UriSource = new Uri(filePath);
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.EndInit();
+            if (videoPlayer.Source != null)
+            {
+                videoPlayer.Stop();
+                videoPlayer.MediaOpened -= VideoPlayer_MediaOpened;
+                videoPlayer.MediaEnded -= VideoPlayer_MediaEnded;
+                videoPlayer.Source = null;
+            }
 
-            photoDisplay.Source = bitmap;
-            CheckIfGifAndPlay(bitmap, filePath);
+            string extension = Path.GetExtension(filePath).ToLower();
+
+            if (new[] { ".mp4", ".avi", ".mov", ".wmv", ".mkv" }.Contains(extension))
+            {
+                photoDisplay.Visibility = Visibility.Collapsed;
+                gifPlayer.Visibility = Visibility.Collapsed;
+                videoPlayer.Visibility = Visibility.Visible;
+
+                videoPlayer.Source = new Uri(filePath);
+                videoPlayer.MediaOpened += VideoPlayer_MediaOpened;
+                videoPlayer.MediaEnded += VideoPlayer_MediaEnded;
+                videoPlayer.Play();
+                isVideoPlaying = true;
+                PlayPauseButton.Content = "⏸";
+            }
+            else
+            {
+                videoPlayer.Visibility = Visibility.Collapsed;
+                VideoControlBar.Visibility = Visibility.Collapsed;
+                LoadImage(filePath);
+            }
         }
 
-        private void CheckIfGifAndPlay(BitmapImage bitmap, string filePath)
+        private void LoadImage(string filePath)
         {
-            if (Path.GetExtension(filePath).ToLower() == ".gif")
+            string extension = Path.GetExtension(filePath).ToLower();
+
+            if (extension == ".gif")
             {
-                var gifDecoder = new GifBitmapDecoder(new Uri(filePath), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.Default);
-                var animation = gifDecoder.Frames;
+                photoDisplay.Visibility = Visibility.Collapsed;
+                gifPlayer.Visibility = Visibility.Visible;
 
-                gifTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(gifInterval) };
-                int frameIndex = 0;
-
-                gifTimer.Tick += (s, args) =>
-                {
-                    photoDisplay.Source = animation[frameIndex];
-                    frameIndex = (frameIndex + 1) % animation.Count;
-                };
-
-                gifTimer.Start();
+                gifPlayer.Source = new Uri(filePath);
+                gifPlayer.LoadedBehavior = MediaState.Manual;
+                gifPlayer.UnloadedBehavior = MediaState.Stop;
+                gifPlayer.MediaEnded += GifPlayer_MediaEnded;
+                gifPlayer.Play();
             }
+            else
+            {
+                gifPlayer.Visibility = Visibility.Collapsed;
+                gifPlayer.Stop();
+                gifPlayer.Source = null;
+
+                BitmapImage bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new Uri(filePath);
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.EndInit();
+
+                photoDisplay.Source = bitmap;
+                photoDisplay.Visibility = Visibility.Visible;
+            }
+        }
+
+        private void GifPlayer_MediaEnded(object sender, RoutedEventArgs e)
+        {
+            gifPlayer.Position = TimeSpan.FromSeconds(0.01);
+            gifPlayer.Play();
         }
 
         private void Previous_Click(object sender, RoutedEventArgs e)
@@ -335,7 +371,7 @@ namespace WindowMaxing
 
             currentIndex = (currentIndex - 1 + imageFiles.Length) % imageFiles.Length;
             LoadMedia(imageFiles[currentIndex]);
-            UpdateNavigationButtons();
+            //UpdateNavigationButtons();
         }
 
         private void NavigateToNextImage()
@@ -344,7 +380,7 @@ namespace WindowMaxing
 
             currentIndex = (currentIndex + 1) % imageFiles.Length;
             LoadMedia(imageFiles[currentIndex]);
-            UpdateNavigationButtons();
+            //UpdateNavigationButtons();
         }
 
         private void UpdateNavigationButtons()
@@ -410,11 +446,11 @@ namespace WindowMaxing
             }
         }
 
-        private void SetGifTimer_Click(object sender, RoutedEventArgs e)
+        private void SetGifSpeed_Click(object sender, RoutedEventArgs e)
         {
-            if (gifTimer != null)
+            if (gifPlayer != null)
             {
-                foreach (MenuItem item in GifIntervalMenu.Items)
+            foreach (MenuItem item in GifSpeedMenu.Items)
                 {
                     item.IsChecked = false;
                 }
@@ -422,44 +458,32 @@ namespace WindowMaxing
                 MenuItem clickedItem = sender as MenuItem;
                 clickedItem.IsChecked = true;
 
-                int interval = 100;
+                double speed = 1.0; 
                 switch (clickedItem.Name)
                 {
-                    case "Gif125ms":
-                        interval = 125;
+                    case "Gif05x":
+                        speed = 0.5;
                         break;
-                    case "Gif100ms":
-                        interval = 100;
+                    case "Gif075x":
+                        speed = 0.75;
                         break;
-                    case "Gif90ms":
-                        interval = 90;
+                    case "Gif1x":
+                        speed = 1.0;
                         break;
-                    case "Gif80ms":
-                        interval = 80;
+                    case "Gif125x":
+                        speed = 1.25;
                         break;
-                    case "Gif70ms":
-                        interval = 70;
+                    case "Gif15x":
+                        speed = 1.5;
                         break;
-                    case "Gif60ms":
-                        interval = 60;
+                    case "Gif175x":
+                        speed = 1.75;
                         break;
-                    case "Gif50ms":
-                        interval = 50;
+                    case "Gif2x":
+                        speed = 2.0;
                         break;
                 }
-
-                gifInterval = interval;
-                RestartGifTimer();
-            }
-        }
-
-        private void RestartGifTimer()
-        {
-            if (gifTimer != null)
-            {
-                gifTimer.Stop();
-                gifTimer.Interval = TimeSpan.FromMilliseconds(gifInterval);
-                gifTimer.Start();
+                gifPlayer.SpeedRatio = speed;
             }
         }
 
@@ -473,43 +497,7 @@ namespace WindowMaxing
             }
         }
 
-        private void LoadMedia(string filePath)
-        {
-            if (gifTimer != null)
-            {
-                gifTimer.Stop();
-                gifTimer = null;
-            }
-
-            if (videoPlayer.Source != null)
-            {
-                videoPlayer.Stop();
-                videoPlayer.MediaOpened -= VideoPlayer_MediaOpened;
-                videoPlayer.MediaEnded -= VideoPlayer_MediaEnded;
-                videoPlayer.Source = null;
-            }
-
-            string extension = Path.GetExtension(filePath).ToLower();
-            if (new[] { ".mp4", ".avi", ".mov", ".wmv", ".mkv" }.Contains(extension))
-            {
-                photoDisplay.Visibility = Visibility.Collapsed;
-                videoPlayer.Visibility = Visibility.Visible;
-
-                videoPlayer.Source = new Uri(filePath);
-                videoPlayer.MediaOpened += VideoPlayer_MediaOpened;
-                videoPlayer.MediaEnded += VideoPlayer_MediaEnded;
-                videoPlayer.Play();
-                isVideoPlaying = true;
-                PlayPauseButton.Content = "⏸";
-            }
-            else
-            {
-                photoDisplay.Visibility = Visibility.Visible;
-                videoPlayer.Visibility = Visibility.Collapsed;
-                VideoControlBar.Visibility = Visibility.Collapsed;
-                LoadImage(filePath);
-            }
-        }
+        
 
 
 
@@ -625,6 +613,21 @@ namespace WindowMaxing
             else if (videoPlayer.Visibility == Visibility.Visible && videoPlayer.NaturalVideoWidth > 0 && videoPlayer.NaturalVideoHeight > 0)
             {
                 double aspectRatio = (double)videoPlayer.NaturalVideoWidth / videoPlayer.NaturalVideoHeight;
+                double newHeight = this.ActualHeight;
+                double newWidth = newHeight * aspectRatio;
+
+                if (newWidth > SystemParameters.PrimaryScreenWidth)
+                {
+                    newWidth = SystemParameters.PrimaryScreenWidth;
+                    newHeight = newWidth / aspectRatio;
+                }
+
+                this.Width = newWidth;
+                this.Height = newHeight;
+            }
+            else if (gifPlayer.Visibility == Visibility.Visible && gifPlayer.NaturalVideoWidth > 0 && gifPlayer.NaturalVideoHeight > 0)
+            {
+                double aspectRatio = (double)gifPlayer.NaturalVideoWidth / gifPlayer.NaturalVideoHeight;
                 double newHeight = this.ActualHeight;
                 double newWidth = newHeight * aspectRatio;
 
