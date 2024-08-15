@@ -183,19 +183,16 @@ namespace WindowMaxing
             initialTimer.Start();
         }
 
-        private async void LoadMedia(string filePath)
+        private void LoadMedia(string filePath)
         {
+            UnloadImage();
+
             if (videoPlayer.Source != null)
             {
                 videoPlayer.Stop();
                 videoPlayer.MediaOpened -= VideoPlayer_MediaOpened;
                 videoPlayer.MediaEnded -= VideoPlayer_MediaEnded;
                 videoPlayer.Source = null;
-            }
-
-            if (ImageBehavior.GetAnimatedSource(photoDisplay) != null)
-            {
-                ImageBehavior.SetAnimatedSource(photoDisplay, null);
             }
 
             string extension = Path.GetExtension(filePath).ToLower();
@@ -216,36 +213,29 @@ namespace WindowMaxing
                 photoDisplay.Visibility = Visibility.Visible;
                 videoPlayer.Visibility = Visibility.Collapsed;
                 VideoControlBar.Visibility = Visibility.Collapsed;
-                await LoadImageAsync(filePath);
+                LoadImage(filePath);
             }
         }
 
-        private async Task LoadImageAsync(string filePath)
+        private void LoadImage(string filePath)
         {
             bool isGif = Path.GetExtension(filePath).ToLower() == ".gif";
 
-            await Task.Run(() =>
+            BitmapImage bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(filePath);
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.EndInit();
+
+            if (isGif)
             {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    BitmapImage bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.UriSource = new Uri(filePath);
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.EndInit();
-
-                    if (isGif)
-                    {
-                        LoadGifWithWpfAnimatedGif(bitmap);
-                    }
-                    else
-                    {
-                        ImageBehavior.SetAnimatedSource(photoDisplay, null);
-
-                        photoDisplay.Source = bitmap;
-                    }
-                });
-            });
+                LoadGifWithWpfAnimatedGif(bitmap);
+            }
+            else
+            {
+                ImageBehavior.SetAnimatedSource(photoDisplay, null);
+                photoDisplay.Source = bitmap;
+            }
         }
 
         private void LoadGifWithWpfAnimatedGif(BitmapImage bitmap)
@@ -254,6 +244,24 @@ namespace WindowMaxing
             ImageBehavior.SetRepeatBehavior(photoDisplay, RepeatBehavior.Forever);
         }
 
+        private void UnloadImage()
+        {
+            if (photoDisplay.Source != null)
+            {
+                BitmapImage oldImage = photoDisplay.Source as BitmapImage;
+                photoDisplay.Source = null;
+
+                if (oldImage != null)
+                {
+                    oldImage.StreamSource?.Dispose();
+                }
+            }
+
+            if (ImageBehavior.GetAnimatedSource(photoDisplay) != null)
+            {
+                ImageBehavior.SetAnimatedSource(photoDisplay, null);
+            }
+        }
 
         private void Previous_Click(object sender, RoutedEventArgs e)
         {
@@ -368,10 +376,6 @@ namespace WindowMaxing
 
             currentIndex = (currentIndex - 1 + imageFiles.Length) % imageFiles.Length;
             LoadMedia(imageFiles[currentIndex]);
-            // Show nav buttons after using them
-            // Only applies when used with keys
-            //
-            //UpdateNavigationButtons();
         }
 
         private void NavigateToNextImage()
@@ -380,10 +384,6 @@ namespace WindowMaxing
 
             currentIndex = (currentIndex + 1) % imageFiles.Length;
             LoadMedia(imageFiles[currentIndex]);
-            // Show nav buttons after using them
-            // Only applies when used with keys
-            //
-            //UpdateNavigationButtons();
         }
 
         private void UpdateNavigationButtons()
